@@ -99,6 +99,8 @@ INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Visby', 'Sweden', '970221-4555');
 INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', ' ', ' ', 10);
 INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', 'Sweden', '940606-6952', 15);
 --INSERT INTO Roads VALUES ('Sweden', 'Stockholm', 'Sweden', 'Gothenburg', 'Sweden', '940606-6952', 15);
+DELETE FROM roads where roads.fromcountry = 'Sweden' AND roads.fromarea = 'Stockholm' AND roads.tocountry = 'Sweden' 
+AND roads.toarea = 'Gothenburg' AND roads.ownerpersonnumber = '940606-6952' AND roads.ownercountry = 'Sweden';
 
 
 --end Fill database--

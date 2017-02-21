@@ -18,6 +18,9 @@ BEGIN
 	END IF;
 
 	IF(TG_OP = 'DELETE') THEN
+		RAISE EXCEPTION 'DEL, %, %', OLD.tocountry, OLD.toarea; 
+		DELETE FROM Roads WHERE Roads.fromcountry = OLD.tocountry AND Roads.fromarea = OLD.toarea AND Roads.ownercountry = OLD.ownercountry AND Roads.ownerpersonnumber = OLD.ownerpersonnumber;
+		--DELETE FROM Roads WHERE Roads.fromcountry = OLD.fromcountry AND Roads.fromarea = OLD.fromarea AND Roads.tocountry = OLD.tocountry AND Roads.toarea = OLD.toarea AND Roads.ownercountry = OLD.ownercountry AND Roads.ownerpersonnumber = OLD.ownerpersonnumber;
 		RETURN OLD;
 	END IF;
 
