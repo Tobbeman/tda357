@@ -1,0 +1,29 @@
+WORK
+
+Roads
+	Insert
+		Insert legit roads
+			Variations
+				Same road different owners
+					Same tax
+					Different tax
+				
+	Delete
+		
+	Update
+		
+		
+		
+Persons
+
+	Update
+		
+
+
+
+Hotels
+	Insert
+		
+	Update
+		
+	

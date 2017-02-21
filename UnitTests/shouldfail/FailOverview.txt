@@ -1,0 +1,36 @@
+FAIL
+
+
+Roads
+	Insert
+		Exact the same
+		Similar
+			Different tax
+		
+		**Reverse order
+		
+		Person is located where it is created
+	Delete
+		Road can be both ways
+		Delete road that does not exist
+	Update
+		Can only change the roadtax, nothing else.
+		
+		
+Persons
+	Update
+		Move between cities with no road between
+		Make sure cheapest road is taken(owned by the person or goverment is free)
+		Try to move when person cant afford
+		City visit should be divided equally between hotels and paid by person
+		Visiting bonus should be aquired by person
+		
+
+Hotels
+	Insert
+		Can't insert a new hotel without the money
+		Each person can only have one hotel per city
+	
+	Update
+		can't be moved
+		
