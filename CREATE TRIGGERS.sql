@@ -89,10 +89,15 @@ BEGIN
 	
 	IF(TG_OP = 'UPDATE') THEN
 		--Check that locaion does not change--
-		IF NOT EXISTS(SELECT name FROM Hotels WHERE ownercountry = NEW.ownercountry AND ownerpersonnumber = NEW.ownerpersonnumber AND locationarea = NEW.locationarea AND locationcountry = NEW.locationcountry)THEN
-			UPDATE Persons SET budget = budget - getval('hotelprice') WHERE country = NEW.country AND personnumber = NEW.ownerpersonnumber;
+		IF NOT EXISTS(SELECT name FROM Hotels WHERE locationarea = NEW.locationarea AND locationcountry = NEW.locationcountry AND name = NEW.name)THEN
+			RAISE EXCEPTION 'Hotel does not exist!';
 		END IF;
-		
+	END IF;
+	
+	IF(TG_OP = 'UPDATE') THEN
+		--Check that locaion does not change--
+		UPDATE Persons SET budget = budget + getval('hotelprice') * getval('hotelrefund') WHERE country = OLD.country AND personnumber = OLD.ownerpersonnumber;
+		END IF;
 	END IF;
 	
 	RETURN NEW;
@@ -101,5 +106,5 @@ END;
 $$ LANGUAGE 'plpgsql';
 
 DROP TRIGGER IF EXISTS check_hotel ON Hotels; 
-CREATE TRIGGER check_hotel BEFORE INSERT OR UPDATE ON Hotels
+CREATE TRIGGER check_hotel BEFORE INSERT OR UPDATE OR DELETE ON Hotels
     FOR EACH ROW EXECUTE PROCEDURE check_hotel();
