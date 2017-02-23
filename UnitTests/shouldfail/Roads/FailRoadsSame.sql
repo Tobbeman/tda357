@@ -99,10 +99,6 @@ ROLLBACK;
   
   
  
-CREATE OR REPLACE FUNCTION failroadsidentical()
-RETURNS bool AS $$
-declare
-  result bool;
 BEGIN TRANSACTION;
 	 --Setup
 	INSERT INTO Countries VALUES ( 'testCountry1') ;
@@ -115,16 +111,13 @@ BEGIN TRANSACTION;
 	--Test
 	INSERT INTO Roads Values ('testCountry1', 'testCity1', 'testCountry1', 'testCity2', 'testCountry1', '123456-1234', 123);
 	INSERT INTO Roads Values ('testCountry1', 'testCity1', 'testCountry1', 'testCity2', 'testCountry1', '123456-1234', 123);
-	
-	BEGIN CATCH
-		ROLLBACK TRANSACTION;
-	END CATCH;
-	
+		EXCEPTION WHEN OTHERS THEN
+			ROLLBACK;
+		
+		END;
 	
 	ROLLBACK;
-	return false;
 END;
-$$ LANGUAGE plpgsql;
   
   
   
@@ -158,8 +151,7 @@ $$ LANGUAGE plpgsql;
   
   
   
-  
-ROLLBACK;
+
   
   
 BEGIN TRANSACTION;
@@ -173,8 +165,9 @@ INSERT INTO Persons VALUES ('testCountry1', '123456-1234', 'Fisken allan', 'test
 --TEST
 INSERT INTO Roads Values ('testCountry1', 'testCity1', 'testCountry1', 'testCity2', 'testCountry1', '123456-1234', 123);
 INSERT INTO Roads Values ('testCountry1', 'testCity1', 'testCountry1', 'testCity2', 'testCountry1', '123456-1234', 123);
-EXCEPTION WHEN restrict_violation THEN 
-END;
+	EXCEPTION WHEN OTHERS THEN 
+		ROLLBACK;
+	END;
 ROLLBACK;
-  
+END
 

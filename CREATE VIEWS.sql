@@ -23,7 +23,7 @@ GROUP BY persons.country, persons.personnumber;
 
 DROP VIEW IF EXISTS AssetSummery;
 CREATE VIEW AssertSummery AS
-SELECT persons.country, persons.personnumber, persons.budget, hotelassets.value--, roadassets.value
-FROM persons NATURAL JOIN hotelassets
-GROUP BY persons.country, persons.personnumber, hotelassets.value--, roadassets.value
+SELECT p.country, p.personnumber, p.budget, (SELECT COUNT(hotels.name) * getval('hotelprice') FROM hotels WHERE hotels.ownercountry = p.country AND hotels.ownerpersonnumber = p.personnumber) + (SELECT COUNT(roads.roadtax) * getval('roadprice') FROM roads WHERE roads.ownercountry = p.country AND roads.ownerpersonnumber = p.personnumber) AS assets, (SELECT COUNT(hotels.name) * getval('hotelprice') * getval('hotelrefund') FROM hotels WHERE hotels.ownercountry = p.country AND hotels.ownerpersonnumber = p.personnumber) AS reclaimable
+FROM persons p --NATURAL JOIN hotelassets
+--GROUP BY persons.country, persons.personnumber, hotelassets.value--, roadassets.value
  
