@@ -38,37 +38,36 @@ CREATE OR REPLACE FUNCTION check_person() RETURNS TRIGGER AS $$
 DECLARE
 	minroadtax integer;
 	numHotels integer;
+	moved boolean = false;
 BEGIN
 	
-	IF(SELECT EXISTS(SELECT ownercountry,ownerpersonnumber FROM Roads 
+	IF (SELECT EXISTS(SELECT ownercountry,ownerpersonnumber FROM Roads 
 		WHERE ((fromarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND tocountry = NEW.locationcountry)) AND (ownercountry = NEW.country AND ownerpersonnumber = NEW.personnumber )))
 		THEN
-		UPDATE Persons SET locationarea = NEW.locationarea, locationcountry = NEW.locationcountry
-				WHERE country = NEW.country AND personnumber = NEW.personnumber;
-				RAISE EXCEPTION 'KEkKKKEKEKEKKDKE'
-				USING HINT = '';
-				RETURN NEW;
-	END IF;
+		--UPDATE Persons SET locationarea = NEW.locationarea, locationcountry = NEW.locationcountry
+				--WHERE country = NEW.country AND personnumber = NEW.personnumber;
+				moved = true;
 	
-	IF(SELECT EXISTS(SELECT roadtax INTO minroadtax FROM Roads 
+	ELSIF(SELECT EXISTS(SELECT roadtax INTO minroadtax FROM Roads 
 		WHERE  (fromarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND tocountry = NEW.locationcountry)
 		ORDER BY roadtax ASC)LIMIT 1) THEN
-			--Travel--
-			UPDATE Persons SET locationarea = NEW.locationarea, locationcountry = NEW.locationcountry, budget = budget-getval("KEK")
-				WHERE country = NEW.country AND locationarea = NEW.locationarea;
-			
+			NEW.budget = NEW.budget - minroadtax;
+			moved = true;
+	ELSE
+		RAISE EXCEPTION 'No road to destination';
+		
+	END IF;
+	
+	--Check hotel--
+	IF(moved) THEN
 			--Check hotel--
 			IF(SELECT EXISTS(SELECT COUNT(Hotels.name) INTO numHotels  FROM Hotels
 				WHERE locationcountry = NEW.locationcountry AND locationname = NEW.locationarea
 				))THEN
-				
-				
+					NEW.budget = NEW.budget + (getval('cityvisit')/numHotels); 
 			END IF;
-				
-	
 	END IF;
-	
-
+	RETURN NEW;
 END;
 
 $$ LANGUAGE 'plpgsql';
@@ -76,3 +75,31 @@ $$ LANGUAGE 'plpgsql';
 DROP TRIGGER IF EXISTS check_person ON Persons; 
 CREATE TRIGGER check_person BEFORE UPDATE ON Persons
     FOR EACH ROW EXECUTE PROCEDURE check_person();
+	
+--------------------------------------------HOTELS------------------------------------------
+CREATE OR REPLACE FUNCTION check_hotel() RETURNS TRIGGER AS $$
+
+BEGIN
+	IF(TG_OP = 'INSERT') THEN
+		--Check that the player buying do not own an hotel in the same area--
+		IF NOT EXISTS(SELECT name FROM Hotels WHERE ownercountry = NEW.ownercountry AND ownerpersonnumber = NEW.ownerpersonnumber AND locationarea = NEW.locationarea AND locationcountry = NEW.locationcountry)THEN
+			UPDATE Persons SET budget = budget - getval('hotelprice') WHERE country = NEW.country AND personnumber = NEW.ownerpersonnumber;
+		END IF;
+	END IF;
+	
+	IF(TG_OP = 'UPDATE') THEN
+		--Check that locaion does not change--
+		IF NOT EXISTS(SELECT name FROM Hotels WHERE ownercountry = NEW.ownercountry AND ownerpersonnumber = NEW.ownerpersonnumber AND locationarea = NEW.locationarea AND locationcountry = NEW.locationcountry)THEN
+			UPDATE Persons SET budget = budget - getval('hotelprice') WHERE country = NEW.country AND personnumber = NEW.ownerpersonnumber;
+		END IF;
+		
+	END IF;
+	
+	RETURN NEW;
+END;
+
+$$ LANGUAGE 'plpgsql';
+
+DROP TRIGGER IF EXISTS check_hotel ON Hotels; 
+CREATE TRIGGER check_hotel BEFORE INSERT OR UPDATE ON Hotels
+    FOR EACH ROW EXECUTE PROCEDURE check_hotel();
