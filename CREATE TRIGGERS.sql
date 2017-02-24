@@ -3,34 +3,105 @@ CREATE OR REPLACE FUNCTION check_road() RETURNS TRIGGER AS $$
 BEGIN
 
 	IF(TG_OP = 'INSERT') THEN
+		
+		IF(SELECT EXISTS(SELECT 1 FROM ROADS WHERE
+			(
+				((fromcountry = NEW.fromcountry AND fromarea = NEW.fromarea) AND (tocountry = NEW.tocountry AND toarea = NEW.toarea)) 
+					OR
+				((fromcountry = NEW.tocountry AND fromarea = NEW.toarea) AND (tocountry = NEW.fromcountry AND toarea = NEW.fromarea))
+			)	
+				AND
+			(ownercountry = NEW.ownercountry AND ownerpersonnumber = NEW.ownerpersonnumber) 
+		)) THEN
+			RAISE EXCEPTION 'Owner owns a road between these areas already'
+				USING HINT = '';
+		END IF;
+			
+		--	OLD ONE
 		--Check if another road does not go the other way--
-		IF(SELECT EXISTS(SELECT 1 FROM Roads WHERE Roads.fromcountry = NEW.tocountry AND Roads.fromarea = NEW.toarea AND Roads.ownercountry = NEW.ownercountry AND Roads.ownerpersonnumber = NEW.ownerpersonnumber)) THEN
-			RAISE EXCEPTION 'Road exists in the reverse direction.'
-				USING HINT = '';
-		END IF;
+		--IF(SELECT EXISTS(SELECT 1 FROM Roads WHERE Roads.fromcountry = NEW.tocountry AND Roads.fromarea = NEW.toarea AND Roads.ownercountry = NEW.ownercountry AND Roads.ownerpersonnumber = NEW.ownerpersonnumber)) THEN
+		--	RAISE EXCEPTION 'Road exists in the reverse direction.'
+		--		USING HINT = '';
+		--END IF;
+		
 		--Check if the player is at the area--
-		IF(SELECT EXISTS(SELECT 1 FROM Persons WHERE locationcountry = NEW.fromcountry AND locationarea = NEW.fromarea AND country = NEW.ownercountry AND personnumber = NEW.ownerpersonnumber)) THEN
-			RAISE EXCEPTION 'The buyer of the road must be at the area of construction'
-				USING HINT = '';
+		IF(SELECT EXISTS(SELECT 1 FROM Persons WHERE
+			(
+			(country = NEW.ownercountry AND personnumber = NEW.ownerpersonnumber)
+			AND
+			(
+				(locationcountry != NEW.tocountry OR locationarea != NEW.toarea)
+				AND
+				(locationcountry != NEW.fromcountry OR locationarea != NEW.fromarea)
+			)
+			)
+			)) THEN
+				RAISE EXCEPTION 'The buyer of the road must be at the area of construction'
+					USING HINT = '';
 		END IF;
-		INSERT INTO Roads VALUES(NEW.fromcountry, NEW.fromarea, NEW.tocountry, NEW.toarea, NEW.ownercountry, NEW.ownerpersonnumber, NEW.roadtax);
+		
+		-- OLD ONE
+		--IF(SELECT EXISTS(SELECT 1 FROM Persons WHERE 
+		--locationcountry = NEW.fromcountry AND locationarea = NEW.fromarea AND country = NEW.ownercountry AND personnumber = NEW.ownerpersonnumber)) THEN
+		--	RAISE EXCEPTION 'The buyer of the road must be at the area of construction'
+		--		USING HINT = '';
+		--END IF;
+		
+		--Check persons budget and throw exception if its to low
+		--TODO
+		
+		
+		--Dont need this one
+		--INSERT INTO Roads VALUES(NEW.fromcountry, NEW.fromarea, NEW.tocountry, NEW.toarea, NEW.ownercountry, NEW.ownerpersonnumber, NEW.roadtax);
 		RETURN NEW;
 	END IF;
-
-	IF(TG_OP = 'DELETE') THEN
-		RAISE EXCEPTION 'DEL, %, %', OLD.tocountry, OLD.toarea; 
-		DELETE FROM Roads WHERE Roads.fromcountry = OLD.tocountry AND Roads.fromarea = OLD.toarea AND Roads.ownercountry = OLD.ownercountry AND Roads.ownerpersonnumber = OLD.ownerpersonnumber;
-		--DELETE FROM Roads WHERE Roads.fromcountry = OLD.fromcountry AND Roads.fromarea = OLD.fromarea AND Roads.tocountry = OLD.tocountry AND Roads.toarea = OLD.toarea AND Roads.ownercountry = OLD.ownercountry AND Roads.ownerpersonnumber = OLD.ownerpersonnumber;
-		RETURN OLD;
-	END IF;
+	
+	
+	-- TODO
+	--IF(TG_OP = 'DELETE') THEN
+		--RAISE EXCEPTION 'DEL, %, %', OLD.tocountry, OLD.toarea; 
+		--DELETE FROM Roads WHERE Roads.fromcountry = OLD.tocountry AND Roads.fromarea = OLD.toarea AND Roads.ownercountry = OLD.ownercountry AND Roads.ownerpersonnumber = OLD.ownerpersonnumber;
+		----DELETE FROM Roads WHERE Roads.fromcountry = OLD.fromcountry AND Roads.fromarea = OLD.fromarea AND Roads.tocountry = OLD.tocountry AND Roads.toarea = OLD.toarea AND Roads.ownercountry = OLD.ownercountry AND Roads.ownerpersonnumber = OLD.ownerpersonnumber;
+		--RETURN OLD;
+	--END IF;
+	
+	
+	
+	-- TODO
+	--IF(TG_OP = 'UPDATE') THEN
+		--IF(	OLD.fromcountry != NEW.fromcountry OR
+		--	OLD.tocountry != NEW.tocountry OR
+		--	OLD.ownercountry != NEW.ownercountry OR
+		--	OLD.ownerpersonnumber != NEW.owner.personnumber) THEN
+		--		RAISE EXCEPTION 'Cannot change owner/directions on a road'
+		--END IF;
+		--RETURN NEW;
+	--END IF;
+	
 
 END;
 
 $$ LANGUAGE 'plpgsql';
 
 DROP TRIGGER IF EXISTS check_road ON Roads; 
-CREATE TRIGGER check_road BEFORE INSERT OR UPDATE OR DELETE ON Roads
+CREATE TRIGGER check_road BEFORE INSERT OR UPDATE ON Roads
     FOR EACH ROW EXECUTE PROCEDURE check_road();
+	
+	
+	---------------------------ROAD DELETE-----------------------------------
+	------------DONT KNOW IF WE SHOULD DO AFTER INSTEAD OF REPLACING...------
+CREATE OR REPLACE FUNCTION delete_road() RETURNS TRIGGER AS $$
+
+BEGIN
+	
+	
+END;
+
+$$ LANGUAGE 'plpgsql';
+
+DROP TRIGGER IF EXISTS delete_road ON Roads; 
+CREATE TRIGGER delete_road INSTEAD OF DELETE ON Roads
+    FOR EACH ROW EXECUTE PROCEDURE delete_road();
 	
 ------------------------------------------------ PERSON-------------------------------------------------
 
@@ -95,7 +166,7 @@ BEGIN
 	END IF;
 	
 	IF(TG_OP = 'UPDATE') THEN
-		--Check that locaion does not change--
+		--Update persons budget
 		UPDATE Persons SET budget = budget + getval('hotelprice') * getval('hotelrefund') WHERE country = OLD.country AND personnumber = OLD.ownerpersonnumber;
 		END IF;
 	END IF;
