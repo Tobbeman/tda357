@@ -17,55 +17,46 @@ BEGIN
 				USING HINT = '';
 		END IF;
 			
-		--	OLD ONE
-		--Check if another road does not go the other way--
-		--IF(SELECT EXISTS(SELECT 1 FROM Roads WHERE Roads.fromcountry = NEW.tocountry AND Roads.fromarea = NEW.toarea AND Roads.ownercountry = NEW.ownercountry AND Roads.ownerpersonnumber = NEW.ownerpersonnumber)) THEN
-		--	RAISE EXCEPTION 'Road exists in the reverse direction.'
-		--		USING HINT = '';
-		--END IF;
-		
-		--Check if the player is at the area--
 		IF(SELECT EXISTS(SELECT 1 FROM Persons WHERE
 			(
-			(country = NEW.ownercountry AND personnumber = NEW.ownerpersonnumber)
-			AND
-			(
-				(locationcountry != NEW.tocountry OR locationarea != NEW.toarea)
+				(country = NEW.ownercountry AND personnumber = NEW.ownerpersonnumber)
 				AND
-				(locationcountry != NEW.fromcountry OR locationarea != NEW.fromarea)
-			)
+				(
+					(locationcountry != NEW.tocountry OR locationarea != NEW.toarea)
+					AND
+					(locationcountry != NEW.fromcountry OR locationarea != NEW.fromarea)
+				)
 			)
 			)) THEN
 				RAISE EXCEPTION 'The buyer of the road must be at the area of construction'
 					USING HINT = '';
 		END IF;
 		
-		-- OLD ONE
-		--IF(SELECT EXISTS(SELECT 1 FROM Persons WHERE 
-		--locationcountry = NEW.fromcountry AND locationarea = NEW.fromarea AND country = NEW.ownercountry AND personnumber = NEW.ownerpersonnumber)) THEN
-		--	RAISE EXCEPTION 'The buyer of the road must be at the area of construction'
-		--		USING HINT = '';
-		--END IF;
-		
 		--Check persons budget and throw exception if its to low
-		--TODO
+		IF((SELECT budget FROM Persons WHERE personnumber = NEW.ownerpersonnumber AND country = NEW.ownercountry) < getval('roadprice')) THEN
+			RAISE EXCEPTION 'The buyer of the road can not afford the road'
+				USING HINT = '';
+		END IF;
 		
-		
-		--Dont need this one
-		--INSERT INTO Roads VALUES(NEW.fromcountry, NEW.fromarea, NEW.tocountry, NEW.toarea, NEW.ownercountry, NEW.ownerpersonnumber, NEW.roadtax);
 		RETURN NEW;
 	END IF;
 	
 	
-	-- TODO
-	--IF(TG_OP = 'DELETE') THEN
-		--RAISE EXCEPTION 'DEL, %, %', OLD.tocountry, OLD.toarea; 
-		--DELETE FROM Roads WHERE Roads.fromcountry = OLD.tocountry AND Roads.fromarea = OLD.toarea AND Roads.ownercountry = OLD.ownercountry AND Roads.ownerpersonnumber = OLD.ownerpersonnumber;
-		----DELETE FROM Roads WHERE Roads.fromcountry = OLD.fromcountry AND Roads.fromarea = OLD.fromarea AND Roads.tocountry = OLD.tocountry AND Roads.toarea = OLD.toarea AND Roads.ownercountry = OLD.ownercountry AND Roads.ownerpersonnumber = OLD.ownerpersonnumber;
-		--RETURN OLD;
-	--END IF;
 	
-	
+	--DELETE BOTH WAYS
+	IF(TG_OP = 'DELETE') THEN
+		--CHECK IF THE WAY IS CORRECT
+		IF( 
+			ownercountry = OLD.ownercountry AND ownerpersonnumber = OLD.ownerpersonnumber
+			AND
+			OLD.fromcountry = fromcountry AND OLD.fromarea = fromarea AND OLD.tocountry = tocountry AND OLD.toarea = toarea;
+			)THEN
+				RETURN OLD;
+		END IF;
+		
+		--DELETE THE OTHER WAY IF THE FIRST IS NOT FOUND
+		DELETE FROM Roads WHERE ownercountry = OLD.ownercountry AND ownerpersonnumber = OLD.ownerpersonnumber AND OLD.tocountry = fromcountry AND OLD.toarea = fromarea AND OLD.fromcountry = tocountry AND OLD.fromarea = toarea;	
+	END IF;
 	
 	-- TODO
 	--IF(TG_OP = 'UPDATE') THEN
@@ -87,22 +78,7 @@ DROP TRIGGER IF EXISTS check_road ON Roads;
 CREATE TRIGGER check_road BEFORE INSERT OR UPDATE ON Roads
     FOR EACH ROW EXECUTE PROCEDURE check_road();
 	
-	
-	---------------------------ROAD DELETE-----------------------------------
-	------------DONT KNOW IF WE SHOULD DO AFTER INSTEAD OF REPLACING...------
-CREATE OR REPLACE FUNCTION delete_road() RETURNS TRIGGER AS $$
 
-BEGIN
-	
-	
-END;
-
-$$ LANGUAGE 'plpgsql';
-
-DROP TRIGGER IF EXISTS delete_road ON Roads; 
-CREATE TRIGGER delete_road INSTEAD OF DELETE ON Roads
-    FOR EACH ROW EXECUTE PROCEDURE delete_road();
-	
 ------------------------------------------------ PERSON-------------------------------------------------
 
 CREATE OR REPLACE FUNCTION check_person() RETURNS TRIGGER AS $$
@@ -160,7 +136,7 @@ BEGIN
 	
 	IF(TG_OP = 'UPDATE') THEN
 		--Check that locaion does not change--
-		IF NOT EXISTS(SELECT name FROM Hotels WHERE locationarea = NEW.locationarea AND locationcountry = NEW.locationcountry AND name = NEW.name)THEN
+		IF NOT EXISTS(SELECT name FROM Hotels WHERE locationname = NEW.locationname AND locationcountry = NEW.locationcountry AND name = NEW.name)THEN
 			RAISE EXCEPTION 'Hotel does not exist!';
 		END IF;
 	END IF;
