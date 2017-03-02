@@ -5,13 +5,11 @@ BEGIN
 	IF(TG_OP = 'INSERT') THEN
 		
 		IF(SELECT EXISTS(SELECT 1 FROM ROADS WHERE
-			(
-				((fromcountry = NEW.fromcountry AND fromarea = NEW.fromarea) AND (tocountry = NEW.tocountry AND toarea = NEW.toarea)) 
+				(((fromcountry = NEW.fromcountry AND fromarea = NEW.fromarea) AND (tocountry = NEW.tocountry AND toarea = NEW.toarea)) 
 					OR
-				((fromcountry = NEW.tocountry AND fromarea = NEW.toarea) AND (tocountry = NEW.fromcountry AND toarea = NEW.fromarea))
-			)	
-				AND
-			(ownercountry = NEW.ownercountry AND ownerpersonnumber = NEW.ownerpersonnumber) 
+				((fromcountry = NEW.tocountry AND fromarea = NEW.toarea) AND (tocountry = NEW.fromcountry AND toarea = NEW.fromarea)))	
+					AND
+				(ownercountry = NEW.ownercountry AND ownerpersonnumber = NEW.ownerpersonnumber) 
 		)) THEN
 			RAISE EXCEPTION 'Owner owns a road between these areas already'
 				USING HINT = '';
@@ -49,7 +47,7 @@ BEGIN
 		IF( 
 			ownercountry = OLD.ownercountry AND ownerpersonnumber = OLD.ownerpersonnumber
 			AND
-			OLD.fromcountry = fromcountry AND OLD.fromarea = fromarea AND OLD.tocountry = tocountry AND OLD.toarea = toarea;
+			OLD.fromcountry = fromcountry AND OLD.fromarea = fromarea AND OLD.tocountry = tocountry AND OLD.toarea = toarea
 			)THEN
 				RETURN OLD;
 		END IF;
@@ -143,8 +141,7 @@ BEGIN
 	
 	IF(TG_OP = 'UPDATE') THEN
 		--Update persons budget
-		UPDATE Persons SET budget = budget + getval('hotelprice') * getval('hotelrefund') WHERE country = OLD.country AND personnumber = OLD.ownerpersonnumber;
-		END IF;
+		UPDATE Persons SET budget = budget + (getval('hotelprice') * getval('hotelrefund')) WHERE country = OLD.country AND personnumber = OLD.ownerpersonnumber;
 	END IF;
 	
 	RETURN NEW;
