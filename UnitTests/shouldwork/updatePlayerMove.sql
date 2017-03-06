@@ -16,6 +16,7 @@ INSERT INTO Roads VALUES ('testCountry1', 'testCity1', 'testCountry1', 'testCity
 
 --TEST
 
+UPDATE Persons SET locationarea = 'testCity1' WHERE country != ' ';
 UPDATE Persons SET locationarea = 'testCity2' WHERE country != ' ';
 
 --TEST--

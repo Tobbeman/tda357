@@ -1,9 +1,5 @@
-
-  
-  
- 
 ROLLBACK;
-  
+
 BEGIN TRANSACTION;
  --Setup
 INSERT INTO Countries VALUES ( 'testCountry1') ;
@@ -18,4 +14,3 @@ INSERT INTO Roads Values ('testCountry1', 'testCity1', 'testCountry1', 'testCity
 
 ROLLBACK;
 END
-

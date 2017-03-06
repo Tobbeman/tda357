@@ -251,27 +251,27 @@ INSERT INTO Countries VALUES (' ') ;
 INSERT INTO Areas VALUES (' ', ' ', 1) ;
 INSERT INTO Persons VALUES ( ' ' , ' ' , 'The Government' , ' ' , ' ' , 100000) ;
 --Generic--
-INSERT INTO Countries VALUES ('Sweden');
+--INSERT INTO Countries VALUES ('Sweden');
 
-INSERT INTO Areas VALUES ( 'Sweden' , 'Gothenburg' , 491630) ;
-INSERT INTO Areas VALUES ( 'Sweden' , 'Stockholm' , 1006024) ;
-INSERT INTO Areas VALUES ( 'Sweden' , 'Visby' , 20000) ;
+--INSERT INTO Areas VALUES ( 'Sweden' , 'Gothenburg' , 491630) ;
+--INSERT INTO Areas VALUES ( 'Sweden' , 'Stockholm' , 1006024) ;
+--INSERT INTO Areas VALUES ( 'Sweden' , 'Visby' , 20000) ;
 
-INSERT INTO Cities VALUES ( 'Sweden' , 'Gothenburg' , 250) ;
-INSERT INTO Cities VALUES ( 'Sweden' , 'Stockholm' , 500) ;
-INSERT INTO Cities VALUES ( 'Sweden' , 'Visby' , 125) ;
+--INSERT INTO Cities VALUES ( 'Sweden' , 'Gothenburg' , 250) ;
+--INSERT INTO Cities VALUES ( 'Sweden' , 'Stockholm' , 500) ;
+--INSERT INTO Cities VALUES ( 'Sweden' , 'Visby' , 125) ;
 
-INSERT INTO Persons VALUES ( 'Sweden' , '940606-6952' , 'Tobias Laving' , 'Sweden' , 'Gothenburg' , 100000);
-INSERT INTO Persons VALUES ( 'Sweden' , '970221-4555' , 'Daniel Laving' , 'Sweden' , 'Stockholm' , 100000);
+--INSERT INTO Persons VALUES ( 'Sweden' , '940606-6952' , 'Tobias Laving' , 'Sweden' , 'Gothenburg' , 100000);
+--INSERT INTO Persons VALUES ( 'Sweden' , '970221-4555' , 'Daniel Laving' , 'Sweden' , 'Stockholm' , 100000);
 
-INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '940606-6952');
-INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '940606-6952');
-INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '970221-4555');
-INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '970221-4555');
-INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Visby', 'Sweden', '970221-4555');
+--INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '940606-6952');
+--INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '940606-6952');
+--INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '970221-4555');
+--INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '970221-4555');
+--INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Visby', 'Sweden', '970221-4555');
 
-INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', ' ', ' ', 10);
-INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', 'Sweden', '940606-6952', 15);
+--INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', ' ', ' ', 10);
+--INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', 'Sweden', '940606-6952', 15);
 --DELETE FROM Roads WHERE (fromarea = 'Stockholm' AND fromcountry = 'Sweden' AND toarea = 'Gothenburg' AND tocountry = 'Sweden' AND ownerpersonnumber = '940606-6952' AND ownercountry = 'Sweden');
 --INSERT INTO Roads VALUES ('Sweden', 'Stockholm', 'Sweden', 'Visby', 'Sweden', '940606-6952', 15);
 

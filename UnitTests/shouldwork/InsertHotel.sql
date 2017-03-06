@@ -1,7 +1,4 @@
-
-
 ROLLBACK;
-
 
 BEGIN TRANSACTION;
 --SETUP
@@ -21,8 +18,6 @@ INSERT INTO Persons VALUES ('testCountry1', '123456-4321', 'Fisken allan', 'test
 INSERT INTO Hotels VALUES ('hotelname', 'testCountry1', 'testCity1', 'testCountry1', '123456-1234' );
 
 INSERT INTO Hotels VALUES ('hotelname', 'testCountry1', 'testCity1', 'testCountry1', '123456-4321' );
-
-
 
 ROLLBACK;
 END
