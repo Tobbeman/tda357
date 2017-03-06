@@ -15,19 +15,18 @@ BEGIN
 				USING HINT = '';
 		END IF;
 
+		--Check if the player is at the right location
 		IF(SELECT EXISTS(SELECT 1 FROM Persons WHERE
-			(
-				(country = NEW.ownercountry AND personnumber = NEW.ownerpersonnumber)
-				AND
-				(
-					(locationcountry != NEW.tocountry OR locationarea != NEW.toarea)
-					AND
-					(locationcountry != NEW.fromcountry OR locationarea != NEW.fromarea)
-				)
-			)
-			)) THEN
-				RAISE EXCEPTION 'The buyer of the road must be at the area of construction'
-					USING HINT = '';
+			(country = NEW.ownercountry AND personnumber = NEW.ownerpersonnumber)
+			AND
+			((locationarea = NEW.fromarea AND locationcountry = NEW.fromcountry)
+			OR
+			(locationarea = NEW.toarea AND locationcountry = NEW.tocountry)
+		)
+		)) THEN
+      --RAISE EXCEPTION 'OWNER';
+		ELSE
+			RAISE EXCEPTION 'The buyer of the road must be at the area of construction';
 		END IF;
 
 		--Check persons budget and throw exception if its to low
