@@ -225,7 +225,7 @@ BEGIN
   IF(TG_OP = 'UPDATE') THEN
     --Check that locaion does not change--
     IF NOT EXISTS(SELECT name FROM Hotels WHERE locationname = NEW.locationname AND locationcountry = NEW.locationcountry AND name = NEW.name)THEN
-      RAISE EXCEPTION 'Hotel does not exist!';
+      RAISE EXCEPTION 'Hotel cannot be moved';
     END IF;
   END IF;
 
