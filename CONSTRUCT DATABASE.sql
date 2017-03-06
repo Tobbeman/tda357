@@ -68,10 +68,13 @@ DROP VIEW IF EXISTS NextMoves;
 CREATE VIEW NextMoves AS
 SELECT persons.country, persons.personnumber, A1.country AS currentCountry, A1.name AS currentArea, A2.country AS validCountry, A2.name AS validArea, roads.roadtax
 FROM persons, areas A1, areas A2, roads
-WHERE persons.locationcountry = A1.country AND persons.locationarea = A1.name AND roads.fromcountry = A1.country AND roads.fromarea = A1.name AND roads.tocountry = A2.country AND roads.toarea = A2.name AND roads.roadtax < persons.budget;
+WHERE persons.locationcountry = A1.country AND persons.locationarea = A1.name AND
+((roads.fromcountry = A1.country AND roads.fromarea = A1.name AND roads.tocountry = A2.country AND roads.toarea = A2.name AND roads.roadtax < persons.budget)
+OR
+(roads.fromcountry = A2.country AND roads.fromarea = A2.name AND roads.tocountry = A1.country AND roads.toarea = A1.name AND roads.roadtax < persons.budget)) ;
 
 DROP VIEW IF EXISTS AssetSummery;
-CREATE VIEW AssertSummery AS
+CREATE VIEW AssetSummery AS
 SELECT p.country, p.personnumber, p.budget, (SELECT COUNT(hotels.name) * getval('hotelprice') FROM hotels WHERE hotels.ownercountry = p.country AND hotels.ownerpersonnumber = p.personnumber) + (SELECT COUNT(roads.roadtax) * getval('roadprice') FROM roads WHERE roads.ownercountry = p.country AND roads.ownerpersonnumber = p.personnumber) AS assets, (SELECT COUNT(hotels.name) * getval('hotelprice') * getval('hotelrefund') FROM hotels WHERE hotels.ownercountry = p.country AND hotels.ownerpersonnumber = p.personnumber) AS reclaimable
 FROM persons p;
 --end Create Views--
@@ -84,8 +87,14 @@ BEGIN
 
   IF(TG_OP = 'INSERT') THEN
 
+--Check if buyer is the government--
   IF(SELECT EXISTS(SELECT 1 FROM Persons WHERE country = ' ' AND personnumber = ' ' AND country = NEW.ownercountry AND personnumber = NEW.ownerpersonnumber))THEN
   RETURN NEW;
+  END IF;
+
+--Check that the to and from is not the same
+  IF(NEW.fromarea = NEW.toarea AND NEW.fromcountry = NEW.tocountry)THEN
+    RAISE EXCEPTION 'Cannot build an road with the same from as to';
   END IF;
 
 --Check if the player already owns an road at this location
@@ -123,18 +132,16 @@ BEGIN
 
 
 
-  --DELETE BOTH WAYS
-
-  -- TODO
-  --IF(TG_OP = 'UPDATE') THEN
-    --IF(  OLD.fromcountry != NEW.fromcountry OR
-    --  OLD.tocountry != NEW.tocountry OR
-    --  OLD.ownercountry != NEW.ownercountry OR
-    --  OLD.ownerpersonnumber != NEW.owner.personnumber) THEN
-    --    RAISE EXCEPTION 'Cannot change owner/directions on a road'
-    --END IF;
-    --RETURN NEW;
-  --END IF;
+  IF(TG_OP = 'UPDATE') THEN
+  --Check that the road can't be moved or renamed--
+    IF(  OLD.fromcountry != NEW.fromcountry OR
+      OLD.tocountry != NEW.tocountry OR
+      OLD.ownercountry != NEW.ownercountry OR
+      OLD.ownerpersonnumber != NEW.ownerpersonnumber) THEN
+        RAISE EXCEPTION 'Cannot change owner/directions on a road';
+    END IF;
+    RETURN NEW;
+  END IF;
 
 
 END;
@@ -160,12 +167,14 @@ BEGIN
 
     IF EXISTS (SELECT * FROM Persons WHERE personnumber = NEW.personnumber AND country = NEW.country AND locationarea = NEW.locationarea AND locationcountry = NEW.locationcountry)THEN
     ELSE
+      --Check if player owns road to location--
       IF (SELECT EXISTS(SELECT * FROM Roads
         WHERE ((fromarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND tocountry = NEW.locationcountry)) AND (ownercountry = NEW.country AND ownerpersonnumber = NEW.personnumber )))
         THEN
         moved = true;
         --UPDATE Persons SET locationarea = NEW.locationarea, locationcountry = NEW.locationcountry
             --WHERE country = NEW.country AND personnumber = NEW.personnumber;
+      --Check if there is an road to location--
       ELSIF (minroadtax IS NOT NULL) THEN
           NEW.budget = NEW.budget - minroadtax;
           moved = true;
@@ -207,7 +216,7 @@ BEGIN
     --Check that the player buying do not own an hotel in the same area--
     IF EXISTS(SELECT name FROM Hotels WHERE ownercountry = NEW.ownercountry AND ownerpersonnumber = NEW.ownerpersonnumber AND locationname = NEW.locationname AND locationcountry = NEW.locationcountry)THEN
       RAISE EXCEPTION 'The player already owns an hotel in this area';
-    ELSE
+      ELSE
       UPDATE Persons SET budget = budget - getval('hotelprice') WHERE country = NEW.ownercountry AND personnumber = NEW.ownerpersonnumber;
     END IF;
   END IF;
@@ -241,27 +250,27 @@ INSERT INTO Countries VALUES (' ') ;
 INSERT INTO Areas VALUES (' ', ' ', 1) ;
 INSERT INTO Persons VALUES ( ' ' , ' ' , 'The Government' , ' ' , ' ' , 100000) ;
 --Generic--
---INSERT INTO Countries VALUES ('Sweden');
+INSERT INTO Countries VALUES ('Sweden');
 
---INSERT INTO Areas VALUES ( 'Sweden' , 'Gothenburg' , 491630) ;
---INSERT INTO Areas VALUES ( 'Sweden' , 'Stockholm' , 1006024) ;
---INSERT INTO Areas VALUES ( 'Sweden' , 'Visby' , 20000) ;
+INSERT INTO Areas VALUES ( 'Sweden' , 'Gothenburg' , 491630) ;
+INSERT INTO Areas VALUES ( 'Sweden' , 'Stockholm' , 1006024) ;
+INSERT INTO Areas VALUES ( 'Sweden' , 'Visby' , 20000) ;
 
---INSERT INTO Cities VALUES ( 'Sweden' , 'Gothenburg' , 250) ;
---INSERT INTO Cities VALUES ( 'Sweden' , 'Stockholm' , 500) ;
---INSERT INTO Cities VALUES ( 'Sweden' , 'Visby' , 125) ;
+INSERT INTO Cities VALUES ( 'Sweden' , 'Gothenburg' , 250) ;
+INSERT INTO Cities VALUES ( 'Sweden' , 'Stockholm' , 500) ;
+INSERT INTO Cities VALUES ( 'Sweden' , 'Visby' , 125) ;
 
---INSERT INTO Persons VALUES ( 'Sweden' , '940606-6952' , 'Tobias Laving' , 'Sweden' , 'Gothenburg' , 100000);
---INSERT INTO Persons VALUES ( 'Sweden' , '970221-4555' , 'Daniel Laving' , 'Sweden' , 'Stockholm' , 100000);
+INSERT INTO Persons VALUES ( 'Sweden' , '940606-6952' , 'Tobias Laving' , 'Sweden' , 'Gothenburg' , 100000);
+INSERT INTO Persons VALUES ( 'Sweden' , '970221-4555' , 'Daniel Laving' , 'Sweden' , 'Stockholm' , 100000);
 
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '940606-6952');
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '940606-6952');
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '970221-4555');
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '970221-4555');
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Visby', 'Sweden', '970221-4555');
+INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '940606-6952');
+INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '940606-6952');
+INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '970221-4555');
+INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '970221-4555');
+INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Visby', 'Sweden', '970221-4555');
 
---INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', ' ', ' ', 10);
---INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', 'Sweden', '940606-6952', 15);
+INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', ' ', ' ', 10);
+INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', 'Sweden', '940606-6952', 15);
 --DELETE FROM Roads WHERE (fromarea = 'Stockholm' AND fromcountry = 'Sweden' AND toarea = 'Gothenburg' AND tocountry = 'Sweden' AND ownerpersonnumber = '940606-6952' AND ownercountry = 'Sweden');
 --INSERT INTO Roads VALUES ('Sweden', 'Stockholm', 'Sweden', 'Visby', 'Sweden', '940606-6952', 15);
 
