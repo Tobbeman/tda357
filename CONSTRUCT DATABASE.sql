@@ -77,7 +77,9 @@ FROM persons p;
 --end Create Views--
 --Create Triggers--
 CREATE OR REPLACE FUNCTION check_road() RETURNS TRIGGER AS $$
-
+DECLARE 
+tempA text;
+tempC text;
 BEGIN
 
   IF(TG_OP = 'INSERT') THEN
@@ -123,7 +125,20 @@ BEGIN
 
   --DELETE BOTH WAYS
   IF(TG_OP = 'DELETE') THEN
-    --CHECK IF THE WAY IS CORRECT
+    IF(SELECT EXISTS(SELECT 1 FROM Roads WHERE ownerpersonnumber = OLD.ownerpersonnumber AND ownercountry = OLD.ownercountry
+	AND((fromarea = OLD.toarea AND fromcountry = OLD.tocountry))
+	))THEN
+		tempA = OLD.toarea;
+		tempC = OLD.tocountry;
+		OLD.toarea = OLD.fromarea;
+		OLD.tocountry = OLD.fromcountry;
+		OLD.fromarea = tempA;
+		OLD.fromcountry = tempC;
+		RETURN OLD;
+	END IF;
+	
+	
+	--CHECK IF THE WAY IS CORRECT
     IF(
       ownercountry = OLD.ownercountry AND ownerpersonnumber = OLD.ownerpersonnumber
       AND
@@ -153,7 +168,7 @@ END;
 $$ LANGUAGE 'plpgsql';
 
 DROP TRIGGER IF EXISTS check_road ON Roads;
-CREATE TRIGGER check_road BEFORE INSERT OR UPDATE ON Roads
+CREATE TRIGGER check_road BEFORE INSERT OR UPDATE OR DELETE ON Roads
     FOR EACH ROW EXECUTE PROCEDURE check_road();
 
 
@@ -267,6 +282,7 @@ INSERT INTO Persons VALUES ( 'Sweden' , '970221-4555' , 'Daniel Laving' , 'Swede
 
 INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', ' ', ' ', 10);
 INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', 'Sweden', '940606-6952', 15);
+DELETE FROM Roads WHERE (fromarea = 'Stockholm' AND fromcountry = 'Sweden' AND toarea = 'Gothenburg' AND tocountry = 'Sweden' AND ownerpersonnumber = '940606-6952' AND ownercountry = 'Sweden');
 --INSERT INTO Roads VALUES ('Sweden', 'Stockholm', 'Sweden', 'Visby', 'Sweden', '940606-6952', 15);
 
 
