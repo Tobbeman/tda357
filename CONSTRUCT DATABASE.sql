@@ -127,6 +127,7 @@ BEGIN
       RAISE EXCEPTION 'The buyer of the road can not afford the road';
     END IF;
 
+    UPDATE Persons SET budget = budget - getval('roadprice') WHERE personnumber = NEW.ownerpersonnumber AND country = NEW.ownercountry;
     RETURN NEW;
   END IF;
 
