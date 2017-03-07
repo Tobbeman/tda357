@@ -209,9 +209,9 @@ public class Game
      * The output should include area names, country names and the associated road-taxes
       */
     void getNextMoves(Connection conn, Player person, String area, String country) throws SQLException {
-        // TODO: Your implementation here
-        string area ="";
-        string country="";
+
+        String validarea ="";
+        String validcountry="";
         double roadtax = 0;
 
         Statement stmt = conn.createStatement();
@@ -225,11 +225,11 @@ public class Game
         while(rs.next()){
             area = rs.getString("validarea");
             country = rs.getString("validcountry");
-            roadtax = rs.getString("roadtax");
+            roadtax = Double.parseDouble(rs.getString("roadtax"));
 
-            System.out.println("If player " + player.name + "wants to travel to " + " Area " + area + " in Country: " + country + " it will cost him " + roadtax);
+            System.out.println("If player " + person.playername + "wants to travel to " + " Area " + validarea + " in Country: " + validcountry + " it will cost him " + roadtax);
         }
-        // TODO TO HERE
+
     }
 
     /* Given a player, this function
@@ -238,9 +238,9 @@ public class Game
      * The output should include area names, country names and the associated road-taxes
      */
     void getNextMoves(Connection conn, Player person) throws SQLException {
-        // TODO: Your implementation here
-        string area ="";
-        string country="";
+
+        String area ="";
+        String country="";
         double roadtax = 0;
 
         Statement stmt = conn.createStatement();
@@ -252,12 +252,12 @@ public class Game
         while(rs.next()){
             area = rs.getString("validarea");
             country = rs.getString("validcountry");
-            roadtax = rs.getString("roadtax");
+            roadtax = Double.parseDouble(rs.getString("roadtax"));
 
-            System.out.println("If player " + player.name + "wants to travel to " + " Area " + area + " in Country: " + country + " it will cost him " + roadtax);
+            System.out.println("If player " + person.playername + "wants to travel to " + " Area " + area + " in Country: " + country + " it will cost him " + roadtax);
         }
 
-        // TODO TO HERE
+
     }
 
     /* Given a personnummer and a country, this function
@@ -345,7 +345,7 @@ public class Game
                     country1 + "=fromcountry ;" );
         }catch (Exception e2){
             System.out.println("Something went wrong inside sellRoad");
-            System.out.println(e.getLocalizedMessage() + "\n");
+            System.out.println(e2.getLocalizedMessage() + "\n");
             res= 0;
         }
 
