@@ -204,24 +204,58 @@ public class Game
     }
 
     /* Given a player and an area name and country name, this function
-     * sould show all directly-reachable destinations for the player from the
+     * should show all directly-reachable destinations for the player from the
      * area from the arguments.
      * The output should include area names, country names and the associated road-taxes
       */
     void getNextMoves(Connection conn, Player person, String area, String country) throws SQLException {
         // TODO: Your implementation here
+        string area ="";
+        string country="";
+        double roadtax = 0;
 
+        Statement stmt = conn.createStatement();
+
+        ResultSet rs = stmt.executeQuery(
+                "SELECT * FROM NextMoves WHERE personnumber = " + person.personnummer +
+                        " AND country = " + person.country +
+                        " AND currentarea = " + area +
+                        " AND currentcountry = " + country + ";");
+
+        while(rs.next()){
+            area = rs.getString("validarea");
+            country = rs.getString("validcountry");
+            roadtax = rs.getString("roadtax");
+
+            System.out.println("If player " + player.name + "wants to travel to " + " Area " + area + " in Country: " + country + " it will cost him " + roadtax);
+        }
         // TODO TO HERE
     }
 
     /* Given a player, this function
-       * sould show all directly-reachable destinations for the player from
+     * should show all directly-reachable destinations for the player from
      * the player's current location.
      * The output should include area names, country names and the associated road-taxes
      */
     void getNextMoves(Connection conn, Player person) throws SQLException {
         // TODO: Your implementation here
-        // hint: Use your implementation of the overloaded getNextMoves function
+        string area ="";
+        string country="";
+        double roadtax = 0;
+
+        Statement stmt = conn.createStatement();
+
+        ResultSet rs = stmt.executeQuery(
+                "SELECT * FROM NextMoves WHERE personnumber = " + person.personnummer +
+                        " AND country = " + person.country + ";");
+
+        while(rs.next()){
+            area = rs.getString("validarea");
+            country = rs.getString("validcountry");
+            roadtax = rs.getString("roadtax");
+
+            System.out.println("If player " + player.name + "wants to travel to " + " Area " + area + " in Country: " + country + " it will cost him " + roadtax);
+        }
 
         // TODO TO HERE
     }
