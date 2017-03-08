@@ -73,8 +73,8 @@ WHERE persons.locationcountry = A1.country AND persons.locationarea = A1.name AN
 OR
 (roads.fromcountry = A2.country AND roads.fromarea = A2.name AND roads.tocountry = A1.country AND roads.toarea = A1.name AND roads.roadtax < persons.budget)) ;
 
-DROP VIEW IF EXISTS AssetSummery;
-CREATE VIEW AssetSummery AS
+DROP VIEW IF EXISTS AssetSummary;
+CREATE VIEW AssetSummary AS
 SELECT p.country, p.personnumber, p.budget, (SELECT COUNT(hotels.name) * getval('hotelprice') FROM hotels WHERE hotels.ownercountry = p.country AND hotels.ownerpersonnumber = p.personnumber) + (SELECT COUNT(roads.roadtax) * getval('roadprice') FROM roads WHERE roads.ownercountry = p.country AND roads.ownerpersonnumber = p.personnumber) AS assets, (SELECT COUNT(hotels.name) * getval('hotelprice') * getval('hotelrefund') FROM hotels WHERE hotels.ownercountry = p.country AND hotels.ownerpersonnumber = p.personnumber) AS reclaimable
 FROM persons p;
 --end Create Views--
@@ -88,8 +88,8 @@ BEGIN
   IF(TG_OP = 'INSERT') THEN
 
 --Check if buyer is the government--
-  IF(SELECT EXISTS(SELECT 1 FROM Persons WHERE country = ' ' AND personnumber = ' ' AND country = NEW.ownercountry AND personnumber = NEW.ownerpersonnumber))THEN
-  RETURN NEW;
+  IF(NEW.ownercountry = '' AND NEW.ownerpersonnumber = '')THEN
+    RETURN NEW;
   END IF;
 
 --Check that the to and from is not the same
@@ -198,6 +198,7 @@ BEGIN
               AND
               p.country = (SELECT ownercountry FROM Hotels WHERE locationname = NEW.locationarea AND locationcountry = NEW.locationcountry AND p.personnumber = ownerpersonnumber AND p.country = ownercountry);
           END IF;
+          NEW.budget = (NEW.budget + (SELECT visitbonus FROM Cities WHERE name = NEW.locationarea AND country = NEW.locationcountry));
       END IF;
     END IF;
   RETURN NEW;
@@ -231,7 +232,8 @@ BEGIN
 
   IF(TG_OP = 'DELETE') THEN
     --Update persons budget
-    UPDATE Persons SET budget = budget + (getval('hotelprice') * getval('hotelrefund')) WHERE country = NEW.ownercountry AND personnumber = NEW.ownerpersonnumber;
+    UPDATE Persons SET budget = budget + (getval('hotelprice') * getval('hotelrefund')) WHERE country = OLD.ownercountry AND personnumber = OLD.ownerpersonnumber;
+    RETURN OLD;
   END IF;
 
   RETURN NEW;
@@ -247,9 +249,9 @@ CREATE TRIGGER check_hotel BEFORE INSERT OR UPDATE OR DELETE ON Hotels
 --Fill database--
 
 --MUST HAVE--
-INSERT INTO Countries VALUES (' ') ;
-INSERT INTO Areas VALUES (' ', ' ', 1) ;
-INSERT INTO Persons VALUES ( ' ' , ' ' , 'The Government' , ' ' , ' ' , 100000) ;
+--INSERT INTO Countries VALUES (' ') ;
+--INSERT INTO Areas VALUES (' ', ' ', 1) ;
+--INSERT INTO Persons VALUES ( ' ' , ' ' , 'The Government' , ' ' , ' ' , 100000) ;
 --Generic--
 --INSERT INTO Countries VALUES ('Sweden');
 
