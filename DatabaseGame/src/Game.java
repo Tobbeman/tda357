@@ -203,6 +203,8 @@ public class Game
             statement.setString(6, "1000");
             statement.executeUpdate();
         }catch (Exception e){
+            System.out.println("Something went wrong in createPlayer");
+            System.out.println(e.getLocalizedMessage());
             result = 0;
         }
 
