@@ -172,7 +172,7 @@ public class Game
       * The location should be random and the budget should be 1000.
      */
     int createPlayer(Connection conn, Player person) throws SQLException {
-        int result = 1;
+
         Statement stmt = conn.createStatement();
         String area = "";
         String country = "";
@@ -192,22 +192,18 @@ public class Game
         area = res.getString("name");
         country = res.getString("country");
         res.close();
-        try{
-            statement = conn.prepareStatement("INSERT INTO Persons (country, personnumber, name, locationcountry, locationarea, budget) VALUES" +
-                    "(?, ?, ?, ?, ?, cast(? as INT));");
-            statement.setString(1, person.country);
-            statement.setString(2, person.personnummer);
-            statement.setString(3, person.playername);
-            statement.setString(4, country);
-            statement.setString(5, area);
-            statement.setString(6, "1000");
-            statement.executeUpdate();
-        }catch (Exception e){
-            result = 0;
-        }
 
+        statement = conn.prepareStatement("INSERT INTO Persons (country, personnumber, name, locationcountry, locationarea, budget) VALUES" +
+                "(?, ?, ?, ?, ?, cast(? as INT));");
+        statement.setString(1, person.country);
+        statement.setString(2, person.personnummer);
+        statement.setString(3, person.playername);
+        statement.setString(4, country);
+        statement.setString(5, area);
+        statement.setString(6, "1000");
+        statement.executeUpdate();
 
-        return result;
+        return 1;
     }
 
     /* Given a player and an area name and country name, this function
