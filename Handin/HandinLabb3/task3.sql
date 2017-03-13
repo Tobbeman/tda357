@@ -31,7 +31,7 @@ create table Cities(
 );
 create table Persons(
   country character varying (80) REFERENCES countries(name),
-  personnumber character varying (80) CHECK (personnumber ~ '[0-9]{6}-[0-9]{4}' OR personnumber = ' '),
+  personnumber character varying (80) CHECK (personnumber ~ '[0-9]{6}-[0-9]{4}' OR personnumber = ''),
   name character varying (80),
   locationcountry character varying (80),
   locationarea character varying (80),
@@ -202,6 +202,7 @@ BEGIN
           END IF;
           IF EXISTS (SELECT visitbonus FROM Cities WHERE name = NEW.locationarea AND country = NEW.locationcountry)THEN
             NEW.budget = (NEW.budget + (SELECT visitbonus FROM Cities WHERE name = NEW.locationarea AND country = NEW.locationcountry));
+            UPDATE cities SET visitbonus = 0 WHERE name = NEW.locationarea AND country = NEW.locationcountry;
           END IF;
       END IF;
     END IF;
@@ -248,39 +249,3 @@ $$ LANGUAGE 'plpgsql';
 DROP TRIGGER IF EXISTS check_hotel ON Hotels;
 CREATE TRIGGER check_hotel BEFORE INSERT OR UPDATE OR DELETE ON Hotels
     FOR EACH ROW EXECUTE PROCEDURE check_hotel();
-
---end Create Triggers--
---Fill database--
-
---MUST HAVE--
---INSERT INTO Countries VALUES ('') ;
---INSERT INTO Areas VALUES ('', '', 1) ;
---INSERT INTO Persons VALUES ( '' , '' , 'The Government' , '' , '' , 100000) ;
---Test--
---INSERT INTO Countries VALUES ('Sweden');
-
---INSERT INTO Areas VALUES ( 'Sweden' , 'Gothenburg' , 491630) ;
---INSERT INTO Areas VALUES ( 'Sweden' , 'Stockholm' , 1006024) ;
---INSERT INTO Areas VALUES ( 'Sweden' , 'Visby' , 20000) ;
-
---INSERT INTO Cities VALUES ( 'Sweden' , 'Gothenburg' , 250) ;
---INSERT INTO Cities VALUES ( 'Sweden' , 'Stockholm' , 500) ;
---INSERT INTO Cities VALUES ( 'Sweden' , 'Visby' , 125) ;
-
---INSERT INTO Persons VALUES ( 'Sweden' , '940606-6952' , 'Tobias Laving' , 'Sweden' , 'Gothenburg' , 100000);
---INSERT INTO Persons VALUES ( 'Sweden' , '970221-4555' , 'Daniel Laving' , 'Sweden' , 'Stockholm' , 100000);
-
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '940606-6952');
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '940606-6952');
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '970221-4555');
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '970221-4555');
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Visby', 'Sweden', '970221-4555');
-
---INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', ' ', ' ', 10);
---INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', 'Sweden', '940606-6952', 15);
---DELETE FROM Roads WHERE (fromarea = 'Stockholm' AND fromcountry = 'Sweden' AND toarea = 'Gothenburg' AND tocountry = 'Sweden' AND ownerpersonnumber = '940606-6952' AND ownercountry = 'Sweden');
---INSERT INTO Roads VALUES ('Sweden', 'Stockholm', 'Sweden', 'Visby', 'Sweden', '940606-6952', 15);
-
-
-
---end Fill database--
