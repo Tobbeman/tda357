@@ -503,8 +503,12 @@ public class Game
         res.next();
         area = res.getString("name");
         country = res.getString("country");
+
+        area = "Turin";
+        country = "Italy";
+
         res.close();
-        stmt.executeUpdate("UPDATE Cities SET visitbonus=1000 WHERE country='" + country + "' AND name='" + area + "'");
+        stmt.executeUpdate("UPDATE Cities SET visitbonus=visitbonus+1000 WHERE country='" + country + "' AND name='" + area + "'");
     }
 
     /* This function should print the winner of the game based on the currently highest budget.
