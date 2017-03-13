@@ -202,6 +202,7 @@ BEGIN
           END IF;
           IF EXISTS (SELECT visitbonus FROM Cities WHERE name = NEW.locationarea AND country = NEW.locationcountry)THEN
             NEW.budget = (NEW.budget + (SELECT visitbonus FROM Cities WHERE name = NEW.locationarea AND country = NEW.locationcountry));
+            UPDATE cities SET visitbonus = 0 WHERE name = NEW.locationarea AND country = NEW.locationcountry;
           END IF;
       END IF;
     END IF;
