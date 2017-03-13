@@ -31,7 +31,7 @@ create table Cities(
 );
 create table Persons(
   country character varying (80) REFERENCES countries(name),
-  personnumber character varying (80) CHECK (personnumber ~ '[0-9]{6}-[0-9]{4}' OR personnumber = ' '),
+  personnumber character varying (80) CHECK (personnumber ~ '[0-9]{6}-[0-9]{4}' OR personnumber = ''),
   name character varying (80),
   locationcountry character varying (80),
   locationarea character varying (80),

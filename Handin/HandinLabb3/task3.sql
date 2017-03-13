@@ -31,11 +31,11 @@ create table Cities(
 );
 create table Persons(
   country character varying (80) REFERENCES countries(name),
-  personnumber char (11) CHECK (personnumber ~ '[0-9]{6}-[0-9]{4}' OR personnumber = ' '),
+  personnumber character varying (80) CHECK (personnumber ~ '[0-9]{6}-[0-9]{4}' OR personnumber = ' '),
   name character varying (80),
   locationcountry character varying (80),
   locationarea character varying (80),
-  budget numeric CHECK (budget >= 0),
+  budget numeric CHECK (budget >= 0) NOT NULL,
   FOREIGN KEY (locationcountry,locationarea) REFERENCES areas(country,name),
   PRIMARY KEY (country,personnumber)
 );
@@ -78,6 +78,8 @@ CREATE VIEW AssetSummary AS
 SELECT p.country, p.personnumber, p.budget, (SELECT COUNT(hotels.name) * getval('hotelprice') FROM hotels WHERE hotels.ownercountry = p.country AND hotels.ownerpersonnumber = p.personnumber) + (SELECT COUNT(roads.roadtax) * getval('roadprice') FROM roads WHERE roads.ownercountry = p.country AND roads.ownerpersonnumber = p.personnumber) AS assets, (SELECT COUNT(hotels.name) * getval('hotelprice') * getval('hotelrefund') FROM hotels WHERE hotels.ownercountry = p.country AND hotels.ownerpersonnumber = p.personnumber) AS reclaimable
 FROM persons p;
 --end Create Views--
+
+
 --Create Triggers--
 CREATE OR REPLACE FUNCTION check_road() RETURNS TRIGGER AS $$
 DECLARE
@@ -128,6 +130,8 @@ BEGIN
     END IF;
 
     UPDATE Persons SET budget = budget - getval('roadprice') WHERE personnumber = NEW.ownerpersonnumber AND country = NEW.ownercountry;
+
+    NEW.roadtax = getval('roadtax');
     RETURN NEW;
   END IF;
 
@@ -162,22 +166,20 @@ DECLARE
   numHotels integer;
   moved boolean = false;
 BEGIN
-    SELECT roadtax INTO minroadtax FROM Roads
-    WHERE  (fromarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND tocountry = NEW.locationcountry) AND (ownercountry != NEW.country AND ownerpersonnumber != NEW.personnumber)
-    ORDER BY roadtax ASC LIMIT 1;
+    --SELECT roadtax INTO minroadtax FROM Roads
+    --WHERE  (fromarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND tocountry = NEW.locationcountry) AND (ownercountry != NEW.country AND ownerpersonnumber != NEW.personnumber)
+    --ORDER BY roadtax ASC LIMIT 1;
 
     IF EXISTS (SELECT * FROM Persons WHERE personnumber = NEW.personnumber AND country = NEW.country AND locationarea = NEW.locationarea AND locationcountry = NEW.locationcountry)THEN
     ELSE
       --Check if player owns road to location--
       IF (SELECT EXISTS(SELECT * FROM Roads
-        WHERE ((fromarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND tocountry = NEW.locationcountry)) AND (ownercountry = NEW.country AND ownerpersonnumber = NEW.personnumber )))
+        WHERE ((fromarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND tocountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (fromarea = NEW.locationarea AND tocountry = NEW.locationcountry)) AND (ownercountry = NEW.country AND ownerpersonnumber = NEW.personnumber )))
         THEN
         moved = true;
-        --UPDATE Persons SET locationarea = NEW.locationarea, locationcountry = NEW.locationcountry
-            --WHERE country = NEW.country AND personnumber = NEW.personnumber;
       --Check if there is an road to location--
-      ELSIF (minroadtax IS NOT NULL) THEN
-          NEW.budget = NEW.budget - minroadtax;
+      ELSIF EXISTS (SELECT * FROM ROADS WHERE ((fromarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND tocountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (fromarea = NEW.locationarea AND tocountry = NEW.locationcountry))) THEN
+          NEW.budget = NEW.budget - getval('roadtax');
           moved = true;
       ELSE
         RAISE EXCEPTION 'No road to destination';
@@ -190,7 +192,7 @@ BEGIN
         SELECT COUNT(Hotels.name) INTO numHotels  FROM Hotels
         WHERE locationcountry = NEW.locationcountry AND locationname = NEW.locationarea;
           --Check hotel--
-          IF (numHotels != 0) THEN
+          IF (numHotels > 0) THEN
               NEW.budget = NEW.budget - (getval('cityvisit'));
 
               UPDATE Persons p SET budget = budget + (getval('cityvisit')/numHotels) WHERE
@@ -198,7 +200,9 @@ BEGIN
               AND
               p.country = (SELECT ownercountry FROM Hotels WHERE locationname = NEW.locationarea AND locationcountry = NEW.locationcountry AND p.personnumber = ownerpersonnumber AND p.country = ownercountry);
           END IF;
-          NEW.budget = (NEW.budget + (SELECT visitbonus FROM Cities WHERE name = NEW.locationarea AND country = NEW.locationcountry));
+          IF EXISTS (SELECT visitbonus FROM Cities WHERE name = NEW.locationarea AND country = NEW.locationcountry)THEN
+            NEW.budget = (NEW.budget + (SELECT visitbonus FROM Cities WHERE name = NEW.locationarea AND country = NEW.locationcountry));
+          END IF;
       END IF;
     END IF;
   RETURN NEW;
@@ -244,3 +248,39 @@ $$ LANGUAGE 'plpgsql';
 DROP TRIGGER IF EXISTS check_hotel ON Hotels;
 CREATE TRIGGER check_hotel BEFORE INSERT OR UPDATE OR DELETE ON Hotels
     FOR EACH ROW EXECUTE PROCEDURE check_hotel();
+
+--end Create Triggers--
+--Fill database--
+
+--MUST HAVE--
+--INSERT INTO Countries VALUES ('') ;
+--INSERT INTO Areas VALUES ('', '', 1) ;
+--INSERT INTO Persons VALUES ( '' , '' , 'The Government' , '' , '' , 100000) ;
+--Test--
+--INSERT INTO Countries VALUES ('Sweden');
+
+--INSERT INTO Areas VALUES ( 'Sweden' , 'Gothenburg' , 491630) ;
+--INSERT INTO Areas VALUES ( 'Sweden' , 'Stockholm' , 1006024) ;
+--INSERT INTO Areas VALUES ( 'Sweden' , 'Visby' , 20000) ;
+
+--INSERT INTO Cities VALUES ( 'Sweden' , 'Gothenburg' , 250) ;
+--INSERT INTO Cities VALUES ( 'Sweden' , 'Stockholm' , 500) ;
+--INSERT INTO Cities VALUES ( 'Sweden' , 'Visby' , 125) ;
+
+--INSERT INTO Persons VALUES ( 'Sweden' , '940606-6952' , 'Tobias Laving' , 'Sweden' , 'Gothenburg' , 100000);
+--INSERT INTO Persons VALUES ( 'Sweden' , '970221-4555' , 'Daniel Laving' , 'Sweden' , 'Stockholm' , 100000);
+
+--INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '940606-6952');
+--INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '940606-6952');
+--INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '970221-4555');
+--INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '970221-4555');
+--INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Visby', 'Sweden', '970221-4555');
+
+--INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', ' ', ' ', 10);
+--INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', 'Sweden', '940606-6952', 15);
+--DELETE FROM Roads WHERE (fromarea = 'Stockholm' AND fromcountry = 'Sweden' AND toarea = 'Gothenburg' AND tocountry = 'Sweden' AND ownerpersonnumber = '940606-6952' AND ownercountry = 'Sweden');
+--INSERT INTO Roads VALUES ('Sweden', 'Stockholm', 'Sweden', 'Visby', 'Sweden', '940606-6952', 15);
+
+
+
+--end Fill database--
