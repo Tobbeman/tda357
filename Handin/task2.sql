@@ -6,6 +6,7 @@ DROP TABLE IF EXISTS Cities CASCADE;
 DROP TABLE IF EXISTS Towns CASCADE;
 DROP TABLE IF EXISTS Areas CASCADE;
 DROP TABLE IF EXISTS Countries CASCADE;
+DROP TABLE IF EXISTS Constants CASCADE;
 
 create table Countries(
   name character varying (80) PRIMARY KEY
@@ -62,21 +63,51 @@ create table Roads(
   FOREIGN KEY (ownercountry,ownerpersonnummer) REFERENCES persons(country,personnummer),
   PRIMARY KEY (fromcountry,fromarea,tocountry,toarea, ownercountry, ownerpersonnummer)
 );
+
+CREATE OR REPLACE FUNCTION getCheapestRoadTax(pnr text, country text, locationarea text, locationcountry text, destarea text, destcountry text) RETURNS NUMERIC AS $$
+DECLARE
+rtax NUMERIC;
+BEGIN
+    SELECT roadtax INTO rtax FROM Roads WHERE((fromcountry = locationcountry AND fromarea = locationArea AND tocountry = destcountry AND toarea = destarea)
+    OR(tocountry = locationcountry AND toarea = locationArea AND fromcountry = destcountry AND fromarea = destarea))
+    AND (pnr != ownerpersonnummer OR country != ownercountry) ORDER BY roadtax ASC LIMIT 1;
+
+    RAISE EXCEPTION '%',rtax;
+    IF EXISTS(SELECT * FROM Roads WHERE(fromcountry = locationcountry AND fromarea = locationArea AND tocountry = destcountry AND toarea = destarea)
+    OR(tocountry = locationcountry AND toarea = locationArea AND fromcountry = destcountry AND fromarea = destarea))THEN
+      IF rtax IS NOT NULL THEN
+        RETURN rtax;
+      ELSE
+        RETURN 0;
+      END IF;
+    END IF;
+    RETURN NULL;
+END
+$$ LANGUAGE 'plpgsql' ;
+
+
 --end Create Table--
 --Create Views--
 DROP VIEW IF EXISTS NextMoves;
 CREATE VIEW NextMoves AS
-SELECT persons.country, persons.personnummer, A1.country AS currentCountry, A1.name AS currentArea, A2.country AS validCountry, A2.name AS validArea, roads.roadtax
+SELECT persons.country AS personcountry, persons.personnummer, A1.country AS Country, A1.name AS Area, A2.country AS destCountry, A2.name AS destArea, CASE WHEN (roads.ownerpersonnummer = persons.personnummer AND roads.ownercountry = persons.country) THEN '0' ELSE roads.roadtax END AS cost
 FROM persons, areas A1, areas A2, roads
-WHERE persons.locationcountry = A1.country AND persons.locationarea = A1.name AND
-((roads.fromcountry = A1.country AND roads.fromarea = A1.name AND roads.tocountry = A2.country AND roads.toarea = A2.name AND roads.roadtax < persons.budget)
+WHERE persons.locationcountry = A1.country AND persons.locationarea = A1.name AND (persons.personnummer != '' OR persons.country != '') AND
+((roads.fromcountry = A1.country AND roads.fromarea = A1.name AND roads.tocountry = A2.country AND roads.toarea = A2.name AND roads.roadtax <= persons.budget)
 OR
-(roads.fromcountry = A2.country AND roads.fromarea = A2.name AND roads.tocountry = A1.country AND roads.toarea = A1.name AND roads.roadtax < persons.budget)) ;
+(roads.fromcountry = A2.country AND roads.fromarea = A2.name AND roads.tocountry = A1.country AND roads.toarea = A1.name AND roads.roadtax <= persons.budget));
+
+DROP VIEW IF EXISTS Nxt;
+CREATE VIEW Nxt AS
+SELECT persons.country AS personcountry, persons.personnummer, A1.country AS Country, A1.name AS Area, A2.country AS destCountry, A2.name AS destArea, roads.roadtax AS cost
+FROM persons, areas A1, areas A2, roads
+WHERE persons.locationcountry = A1.country AND persons.locationarea = A1.name AND (persons.personnummer != '' OR persons.country != '') AND (SELECT getCheapestRoadTax(persons.personnummer,persons.country,A1.name,A1.country,A2.name,A2.country)!=NULL);
 
 DROP VIEW IF EXISTS AssetSummary;
 CREATE VIEW AssetSummary AS
 SELECT p.country, p.personnummer, p.budget, (SELECT COUNT(hotels.name) * getval('hotelprice') FROM hotels WHERE hotels.ownercountry = p.country AND hotels.ownerpersonnummer = p.personnummer) + (SELECT COUNT(roads.roadtax) * getval('roadprice') FROM roads WHERE roads.ownercountry = p.country AND roads.ownerpersonnummer = p.personnummer) AS assets, (SELECT COUNT(hotels.name) * getval('hotelprice') * getval('hotelrefund') FROM hotels WHERE hotels.ownercountry = p.country AND hotels.ownerpersonnummer = p.personnummer) AS reclaimable
-FROM persons p;
+FROM persons p
+WHERE (p.personnummer != '' AND p.country != '');
 --end Create Views--
 
 
@@ -154,7 +185,7 @@ END;
 $$ LANGUAGE 'plpgsql';
 
 DROP TRIGGER IF EXISTS check_road ON Roads;
-CREATE TRIGGER check_road BEFORE INSERT OR UPDATE OR DELETE ON Roads
+CREATE TRIGGER check_road BEFORE INSERT OR UPDATE ON Roads
     FOR EACH ROW EXECUTE PROCEDURE check_road();
 
 
@@ -162,7 +193,9 @@ CREATE TRIGGER check_road BEFORE INSERT OR UPDATE OR DELETE ON Roads
 
 CREATE OR REPLACE FUNCTION check_person() RETURNS TRIGGER AS $$
 DECLARE
-  minroadtax NUMERIC;
+  lowestRoadTax NUMERIC;
+  vownercountry TEXT;
+  vownerpnr TEXT;
   numHotels integer;
   moved boolean = false;
 BEGIN
@@ -170,7 +203,9 @@ BEGIN
     --WHERE  (fromarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND tocountry = NEW.locationcountry) AND (ownercountry != NEW.country AND ownerpersonnummer != NEW.personnummer)
     --ORDER BY roadtax ASC LIMIT 1;
 
-    IF EXISTS (SELECT * FROM Persons WHERE personnummer = NEW.personnummer AND country = NEW.country AND locationarea = NEW.locationarea AND locationcountry = NEW.locationcountry)THEN
+
+    --Check that the player is not traveling to itself
+    IF EXISTS (SELECT * FROM Persons WHERE personnummer = NEW.personnummer AND country = NEW.country AND locationarea = NEW.locationarea AND locationcountry = NEW.locationcountry) THEN
     ELSE
       --Check if player owns road to location--
       IF (SELECT EXISTS(SELECT * FROM Roads
@@ -178,27 +213,45 @@ BEGIN
         THEN
         moved = true;
       --Check if there is an road to location--
-      ELSIF EXISTS (SELECT * FROM ROADS WHERE ((fromarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND tocountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (fromarea = NEW.locationarea AND tocountry = NEW.locationcountry))) THEN
-          NEW.budget = NEW.budget - getval('roadtax');
+      ELSIF EXISTS (SELECT * FROM NextMoves WHERE NEW.budget >= cost AND personcountry = NEW.country AND personnummer = NEW.personnummer AND Country = OLD.locationcountry AND Area = OLD.locationarea AND destCountry = NEW.locationcountry AND destArea = NEW.locationarea) THEN
+          SELECT ownercountry INTO vownercountry FROM ROADS WHERE ((fromcountry = OLD.locationcountry AND tocountry = NEW.locationcountry) OR (tocountry = OLD.locationcountry AND fromcountry = NEW.locationcountry))AND((fromarea = OLD.locationarea AND toarea = NEW.locationarea) OR (toarea = OLD.locationarea AND fromarea = NEW.locationarea)) ORDER BY roadtax ASC LIMIT 1;
+          SELECT ownerpersonnummer INTO vownerpnr FROM ROADS WHERE ((fromcountry = OLD.locationcountry AND tocountry = NEW.locationcountry) OR (tocountry = OLD.locationcountry AND fromcountry = NEW.locationcountry))AND((fromarea = OLD.locationarea AND toarea = NEW.locationarea) OR (toarea = OLD.locationarea AND fromarea = NEW.locationarea)) ORDER BY roadtax ASC LIMIT 1;
+          SELECT roadtax INTO lowestRoadTax FROM ROADS WHERE ((fromcountry = OLD.locationcountry AND tocountry = NEW.locationcountry) OR (tocountry = OLD.locationcountry AND fromcountry = NEW.locationcountry))AND((fromarea = OLD.locationarea AND toarea = NEW.locationarea) OR (toarea = OLD.locationarea AND fromarea = NEW.locationarea)) ORDER BY roadtax ASC LIMIT 1;
+          --SELECT ownerpersonnummer INTO vownerpnr FROM ROADS WHERE ((fromarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND tocountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (fromarea = NEW.locationarea AND tocountry = NEW.locationcountry)) ORDER BY roadtax ASC LIMIT 1;
+          --SELECT roadtax INTO lowestRoadTax FROM Roads WHERE ((fromarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND tocountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (fromarea = NEW.locationarea AND tocountry = NEW.locationcountry)) ORDER BY roadtax ASC LIMIT 1;
+          NEW.budget = NEW.budget - lowestRoadTax;
+          UPDATE Persons SET budget = budget + lowestRoadTax  WHERE country = vownercountry AND personnummer = vownerpnr;
           moved = true;
+      ELSIF EXISTS (SELECT * FROM ROADS WHERE NEW.budget < roadtax AND ((fromarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND tocountry = NEW.locationcountry) OR (toarea = NEW.locationarea AND fromcountry = NEW.locationcountry) OR (fromarea = NEW.locationarea AND tocountry = NEW.locationcountry))) THEN
+        RAISE EXCEPTION 'No road that the player can afford';
       ELSE
         RAISE EXCEPTION 'No road to destination';
-
       END IF;
 
 
       --Check hotel--
-      IF(moved) THEN
+      IF(moved = TRUE) THEN
+        --RAISE exception 'HEllo';
         SELECT COUNT(Hotels.name) INTO numHotels  FROM Hotels
         WHERE locationcountry = NEW.locationcountry AND locationname = NEW.locationarea;
           --Check hotel--
           IF (numHotels > 0) THEN
-              NEW.budget = NEW.budget - (getval('cityvisit'));
+
+              IF((NEW.budget - getval('cityvisit') < 0))THEN
+                RAISE EXCEPTION 'The player cannot afford to visit this city';
+              END IF;
+
+              NEW.budget = NEW.budget - getval('cityvisit') + (getval('cityvisit')/numHotels);
 
               UPDATE Persons p SET budget = budget + (getval('cityvisit')/numHotels) WHERE
+              (p.personnummer != NEW.personnummer OR p.country != NEW.country)
+              AND
               p.personnummer = (SELECT ownerpersonnummer FROM Hotels WHERE locationname = NEW.locationarea AND locationcountry = NEW.locationcountry AND p.country = ownercountry AND p.personnummer = ownerpersonnummer)
               AND
               p.country = (SELECT ownercountry FROM Hotels WHERE locationname = NEW.locationarea AND locationcountry = NEW.locationcountry AND p.personnummer = ownerpersonnummer AND p.country = ownercountry);
+              --AND p.personnummer != NEW.personnummer AND p.country != NEW.country;
+              --This person
+              --raise exception '%', NEW.budget;
           END IF;
           IF EXISTS (SELECT visitbonus FROM Cities WHERE name = NEW.locationarea AND country = NEW.locationcountry)THEN
             NEW.budget = (NEW.budget + (SELECT visitbonus FROM Cities WHERE name = NEW.locationarea AND country = NEW.locationcountry));
@@ -251,37 +304,47 @@ CREATE TRIGGER check_hotel BEFORE INSERT OR UPDATE OR DELETE ON Hotels
     FOR EACH ROW EXECUTE PROCEDURE check_hotel();
 
 --end Create Triggers--
---Fill database--
 
---MUST HAVE--
---INSERT INTO Countries VALUES ('') ;
---INSERT INTO Areas VALUES ('', '', 1) ;
---INSERT INTO Persons VALUES ( '' , '' , 'The Government' , '' , '' , 100000) ;
---Test--
---INSERT INTO Countries VALUES ('Sweden');
+CREATE TABLE Constants(
+    name TEXT PRIMARY KEY,
+    value NUMERIC NOT NULL
+);
 
---INSERT INTO Areas VALUES ( 'Sweden' , 'Gothenburg' , 491630) ;
---INSERT INTO Areas VALUES ( 'Sweden' , 'Stockholm' , 1006024) ;
---INSERT INTO Areas VALUES ( 'Sweden' , 'Visby' , 20000) ;
+INSERT INTO Constants VALUES('roadprice', 456.9);
+INSERT INTO Constants VALUES('hotelprice', 789.2);
+INSERT INTO Constants VALUES('roadtax', 13.5);
+INSERT INTO Constants VALUES('hotelrefund', 0.50);
+INSERT INTO Constants VALUES('cityvisit', 102030.3);
 
---INSERT INTO Cities VALUES ( 'Sweden' , 'Gothenburg' , 250) ;
---INSERT INTO Cities VALUES ( 'Sweden' , 'Stockholm' , 500) ;
---INSERT INTO Cities VALUES ( 'Sweden' , 'Visby' , 125) ;
+CREATE OR REPLACE FUNCTION getval(qname TEXT) RETURNS NUMERIC AS $$
+DECLARE
+    xxx NUMERIC;
+BEGIN
+    xxx := (SELECT value FROM Constants WHERE name = qname);
+    RETURN xxx;
+END
+$$ LANGUAGE 'plpgsql' ;
 
---INSERT INTO Persons VALUES ( 'Sweden' , '940606-6952' , 'Tobias Laving' , 'Sweden' , 'Gothenburg' , 100000);
---INSERT INTO Persons VALUES ( 'Sweden' , '970221-4555' , 'Daniel Laving' , 'Sweden' , 'Stockholm' , 100000);
+-- the assert function is for the unit tests
+CREATE OR REPLACE FUNCTION assert(x numeric, y numeric) RETURNS void AS $$
+BEGIN
+    IF NOT (SELECT trunc(x, 2) = trunc(y, 2))
+    THEN
+        RAISE 'assert(%=%) failed (up to 2 decimal places, checked with trunc())!', x, y;
+    END IF;
+    RETURN;
+END
+$$ LANGUAGE 'plpgsql' ;
 
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '940606-6952');
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '940606-6952');
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Gothenburg', 'Sweden', '970221-4555');
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Stockholm', 'Sweden', '970221-4555');
---INSERT INTO Hotels VALUES('Hotel', 'Sweden', 'Visby', 'Sweden', '970221-4555');
-
---INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', ' ', ' ', 10);
---INSERT INTO Roads VALUES ('Sweden', 'Gothenburg', 'Sweden', 'Stockholm', 'Sweden', '940606-6952', 15);
---DELETE FROM Roads WHERE (fromarea = 'Stockholm' AND fromcountry = 'Sweden' AND toarea = 'Gothenburg' AND tocountry = 'Sweden' AND ownerpersonnummer = '940606-6952' AND ownercountry = 'Sweden');
---INSERT INTO Roads VALUES ('Sweden', 'Stockholm', 'Sweden', 'Visby', 'Sweden', '940606-6952', 15);
-
+CREATE OR REPLACE FUNCTION assert(x text, y text) RETURNS void AS $$
+BEGIN
+    IF NOT (SELECT x = y)
+    THEN
+        RAISE 'assert(%=%) failed!', x, y;
+    END IF;
+    RETURN;
+END
+$$ LANGUAGE 'plpgsql' ;
 
 
 --end Fill database--
