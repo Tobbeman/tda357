@@ -241,7 +241,11 @@ BEGIN
                 RAISE EXCEPTION 'The player cannot afford to visit this city';
               END IF;
 
-              NEW.budget = NEW.budget - getval('cityvisit') + (getval('cityvisit')/numHotels);
+              NEW.budget = NEW.budget - getval('cityvisit');
+
+              IF EXISTS(SELECT * FROM Hotels WHERE ownercountry = NEW.country AND ownerpersonnummer = NEW.personnummer AND locationarea = NEW.locationarea AND locationcountry = New.locationcountry) THEN
+                 NEW.budget = NEW.budget + (getval('cityvisit')/numHotels);
+              END IF;
 
               UPDATE Persons p SET budget = budget + (getval('cityvisit')/numHotels) WHERE
               (p.personnummer != NEW.personnummer OR p.country != NEW.country)
